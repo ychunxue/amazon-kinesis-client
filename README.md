@@ -1,5 +1,5 @@
 # Amazon Kinesis Client Library for Java
-[![Build Status](https://travis-ci.org/awslabs/amazon-kinesis-client.svg?branch=master)](https://travis-ci.org/awslabs/amazon-kinesis-client) ![BuildStatus](https://codebuild.us-west-2.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiaWo4bDYyUkpWaG9ZTy9zeFVoaVlWbEwxazdicDJLcmZwUUpFWVVBM0ZueEJSeFIzNkhURzdVbUd6WUZHcGNxa3BEUzNrL0I5Nzc4NE9rbXhvdEpNdlFRPSIsIml2UGFyYW1ldGVyU3BlYyI6IlZDaVZJSTM1QW95bFRTQnYiLCJtYXRlcmlhbFNldFNlcmlhbCI6MX0%3D&branch=master)
+[![Build Status](https://travis-ci.org/awslabs/amazon-kinesis-client.svg?branch=master)](https://travis-ci.org/awslabs/amazon-kinesis-client)
 
 The **Amazon Kinesis Client Library for Java** (Amazon KCL) enables Java developers to easily consume and process data from [Amazon Kinesis][kinesis].
 
@@ -47,7 +47,7 @@ The recommended way to use the KCL for Java is to consume it from Maven.
   <dependency>
       <groupId>software.amazon.kinesis</groupId>
       <artifactId>amazon-kinesis-client</artifactId>
-      <version>2.2.4</version>
+      <version>2.2.9</version>
   </dependency>
   ```
 
@@ -63,13 +63,12 @@ The recommended way to use the KCL for Java is to consume it from Maven.
 
 ## Release Notes
 
-### Latest Release (2.2.7 - December 2, 2019)
-[Milestone#45](https://github.com/awslabs/amazon-kinesis-client/milestone/45)
-* Updating the AWS SDK version to 2.10.25
-  * [PR#657](https://github.com/awslabs/amazon-kinesis-client/pull/657)
-* Adding a configurable DynamoDB billing mode
-  * [PR#582](https://github.com/awslabs/amazon-kinesis-client/pull/582)
-
+### Latest Release 2.2.9 (Febuary 17, 2020)
+[Milestone#47](https://github.com/awslabs/amazon-kinesis-client/milestone/47)
+* Updating the AWS SDK version to 2.10.66.
+  * [PR#687](https://github.com/awslabs/amazon-kinesis-client/commit/8aaf2aa11c43f77f459732cdb7d88f4418d367ff)
+* Adding request id logging to SubscribeToShard response.
+  * [PR#678](https://github.com/awslabs/amazon-kinesis-client/pull/678)
 
 ### For remaining release notes check **[CHANGELOG.md][changelog-md]**.
 
