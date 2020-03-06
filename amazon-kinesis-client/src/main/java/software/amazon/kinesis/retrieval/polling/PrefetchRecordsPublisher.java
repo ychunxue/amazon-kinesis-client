@@ -44,6 +44,7 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.cloudwatch.model.StandardUnit;
 import software.amazon.awssdk.services.kinesis.model.ExpiredIteratorException;
 import software.amazon.awssdk.services.kinesis.model.GetRecordsResponse;
+import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.kinesis.annotations.KinesisClientInternalApi;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.common.RequestDetails;
@@ -162,7 +163,7 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
             } else {
                 log.info(
                         "{}: No record batch found while evicting from the prefetch queue. This indicates the prefetch buffer"
-                                + "was reset.", shardId);
+                                + " was reset.", shardId);
             }
             return result;
         }
@@ -427,6 +428,13 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
                 try {
                     sleepBeforeNextCall();
                     GetRecordsResponse getRecordsResult = getRecordsRetrievalStrategy.getRecords(maxRecordsPerCall);
+
+                    if(!isValidResponse(getRecordsResult)) {
+                        throw new RuntimeException("GetRecordRespoinse is invalid for shard " + shardId
+                                                    + ". nextShardIterator: " + getRecordsResult.nextShardIterator()
+                                                    + ". childShards: " + getRecordsResult.childShards());
+                    }
+
                     lastSuccessfulCall = Instant.now();
 
                     final List<KinesisClientRecord> records = getRecordsResult.records().stream()
@@ -436,6 +444,7 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
                             .millisBehindLatest(getRecordsResult.millisBehindLatest())
                             .cacheEntryTime(lastSuccessfulCall)
                             .isAtShardEnd(getRecordsRetrievalStrategy.getDataFetcher().isShardEndReached())
+                            .childShards(getRecordsResult.childShards())
                             .build();
 
                     PrefetchRecordsRetrieved recordsRetrieved = new PrefetchRecordsRetrieved(processRecordsInput,
@@ -478,6 +487,11 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
                             "Shutdown has probably been started", shardId);
                 }
             }
+        }
+
+        private boolean isValidResponse(GetRecordsResponse response) {
+            return response.nextShardIterator() == null ? !CollectionUtils.isNullOrEmpty(response.childShards())
+                                                        : response.childShards() != null && response.childShards().isEmpty();
         }
 
         private void callShutdownOnStrategy() {

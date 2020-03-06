@@ -26,6 +26,7 @@ import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.core.async.SdkPublisher;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
+import software.amazon.awssdk.services.kinesis.model.ChildShard;
 import software.amazon.awssdk.services.kinesis.model.Record;
 import software.amazon.awssdk.services.kinesis.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.kinesis.model.ShardIteratorType;
@@ -35,6 +36,7 @@ import software.amazon.awssdk.services.kinesis.model.SubscribeToShardEventStream
 import software.amazon.awssdk.services.kinesis.model.SubscribeToShardRequest;
 import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
+import software.amazon.kinesis.leases.ShardObjectHelper;
 import software.amazon.kinesis.lifecycle.ShardConsumerNotifyingSubscriber;
 import software.amazon.kinesis.lifecycle.events.ProcessRecordsInput;
 import software.amazon.kinesis.retrieval.BatchUniqueIdentifier;
@@ -89,6 +91,7 @@ public class FanOutRecordsPublisherTest {
 
     private static final String SHARD_ID = "Shard-001";
     private static final String CONSUMER_ARN = "arn:consumer";
+    private static final String CONTINUATION_SEQUENCE_NUMBER = "continuationSequenceNumber";
 
     @Mock
     private KinesisAsyncClient kinesisClient;
@@ -148,7 +151,7 @@ public class FanOutRecordsPublisherTest {
         List<KinesisClientRecordMatcher> matchers = records.stream().map(KinesisClientRecordMatcher::new)
                 .collect(Collectors.toList());
 
-        batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).build();
+        batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).continuationSequenceNumber("test").build();
 
         captor.getValue().onNext(batchEvent);
         captor.getValue().onNext(batchEvent);
@@ -156,6 +159,73 @@ public class FanOutRecordsPublisherTest {
 
         verify(subscription, times(4)).request(1);
         assertThat(receivedInput.size(), equalTo(3));
+
+        receivedInput.stream().map(ProcessRecordsInput::records).forEach(clientRecordsList -> {
+            assertThat(clientRecordsList.size(), equalTo(matchers.size()));
+            for (int i = 0; i < clientRecordsList.size(); ++i) {
+                assertThat(clientRecordsList.get(i), matchers.get(i));
+            }
+        });
+
+    }
+
+    @Test
+    public void InvalidEventTest() throws Exception {
+        FanOutRecordsPublisher source = new FanOutRecordsPublisher(kinesisClient, SHARD_ID, CONSUMER_ARN);
+
+        ArgumentCaptor<FanOutRecordsPublisher.RecordSubscription> captor = ArgumentCaptor
+                .forClass(FanOutRecordsPublisher.RecordSubscription.class);
+        ArgumentCaptor<FanOutRecordsPublisher.RecordFlow> flowCaptor = ArgumentCaptor
+                .forClass(FanOutRecordsPublisher.RecordFlow.class);
+
+        doNothing().when(publisher).subscribe(captor.capture());
+
+        source.start(ExtendedSequenceNumber.LATEST,
+                     InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.LATEST));
+
+        List<ProcessRecordsInput> receivedInput = new ArrayList<>();
+
+        source.subscribe(new ShardConsumerNotifyingSubscriber(new Subscriber<RecordsRetrieved>() {
+            Subscription subscription;
+
+            @Override public void onSubscribe(Subscription s) {
+                subscription = s;
+                subscription.request(1);
+            }
+
+            @Override public void onNext(RecordsRetrieved input) {
+                receivedInput.add(input.processRecordsInput());
+                subscription.request(1);
+            }
+
+            @Override public void onError(Throwable t) {
+                log.error("Caught throwable in subscriber", t);
+                fail("Caught throwable in subscriber");
+            }
+
+            @Override public void onComplete() {
+                fail("OnComplete called when not expected");
+            }
+        }, source));
+
+        verify(kinesisClient).subscribeToShard(any(SubscribeToShardRequest.class), flowCaptor.capture());
+        flowCaptor.getValue().onEventStream(publisher);
+        captor.getValue().onSubscribe(subscription);
+
+        List<Record> records = Stream.of(1, 2, 3).map(this::makeRecord).collect(Collectors.toList());
+        List<KinesisClientRecordMatcher> matchers = records.stream().map(KinesisClientRecordMatcher::new)
+                                                           .collect(Collectors.toList());
+
+        batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).continuationSequenceNumber(CONTINUATION_SEQUENCE_NUMBER).build();
+        SubscribeToShardEvent invalidEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).build();
+
+        captor.getValue().onNext(batchEvent);
+        captor.getValue().onNext(invalidEvent);
+        captor.getValue().onNext(batchEvent);
+
+        // When the second request failed with invalid event, it should stop sending requests and cancel the flow.
+        verify(subscription, times(2)).request(1);
+        assertThat(receivedInput.size(), equalTo(1));
 
         receivedInput.stream().map(ProcessRecordsInput::records).forEach(clientRecordsList -> {
             assertThat(clientRecordsList.size(), equalTo(matchers.size()));
@@ -538,11 +608,27 @@ public class FanOutRecordsPublisherTest {
                         .records(records)
                         .build());
 
+        List<ChildShard> childShards = new ArrayList<>();
+        List<String> parentShards = new ArrayList<>();
+        parentShards.add(SHARD_ID);
+        ChildShard leftChild = ChildShard.builder()
+                                         .shardId("Shard-002")
+                                         .parentShards(parentShards)
+                                         .hashKeyRange(ShardObjectHelper.newHashKeyRange("0", "49"))
+                                         .build();
+        ChildShard rightChild = ChildShard.builder()
+                                          .shardId("Shard-003")
+                                          .parentShards(parentShards)
+                                          .hashKeyRange(ShardObjectHelper.newHashKeyRange("50", "99"))
+                                          .build();
+        childShards.add(leftChild);
+        childShards.add(rightChild);
         Consumer<Integer> servicePublisherShardEndAction = contSeqNum -> captor.getValue().onNext(
                 SubscribeToShardEvent.builder()
                         .millisBehindLatest(100L)
                         .continuationSequenceNumber(null)
                         .records(records)
+                        .childShards(childShards)
                         .build());
 
         CountDownLatch servicePublisherTaskCompletionLatch = new CountDownLatch(2);
@@ -1004,7 +1090,7 @@ public class FanOutRecordsPublisherTest {
         List<KinesisClientRecordMatcher> matchers = records.stream().map(KinesisClientRecordMatcher::new)
                 .collect(Collectors.toList());
 
-        batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).build();
+        batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).continuationSequenceNumber(CONTINUATION_SEQUENCE_NUMBER).build();
 
         captor.getValue().onNext(batchEvent);
         captor.getValue().onNext(batchEvent);
