@@ -18,6 +18,7 @@ package software.amazon.kinesis.retrieval.polling;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -428,13 +429,6 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
                 try {
                     sleepBeforeNextCall();
                     GetRecordsResponse getRecordsResult = getRecordsRetrievalStrategy.getRecords(maxRecordsPerCall);
-
-                    if(!isValidResponse(getRecordsResult)) {
-                        throw new RuntimeException("GetRecordRespoinse is invalid for shard " + shardId
-                                                    + ". nextShardIterator: " + getRecordsResult.nextShardIterator()
-                                                    + ". childShards: " + getRecordsResult.childShards());
-                    }
-
                     lastSuccessfulCall = Instant.now();
 
                     final List<KinesisClientRecord> records = getRecordsResult.records().stream()
@@ -487,11 +481,6 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
                             "Shutdown has probably been started", shardId);
                 }
             }
-        }
-
-        private boolean isValidResponse(GetRecordsResponse response) {
-            return response.nextShardIterator() == null ? !CollectionUtils.isNullOrEmpty(response.childShards())
-                                                        : response.childShards() != null && response.childShards().isEmpty();
         }
 
         private void callShutdownOnStrategy() {

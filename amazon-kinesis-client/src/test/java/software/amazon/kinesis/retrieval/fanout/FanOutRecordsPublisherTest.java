@@ -49,6 +49,7 @@ import software.amazon.kinesis.utils.SubscribeToShardRequestMatcher;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -151,7 +152,12 @@ public class FanOutRecordsPublisherTest {
         List<KinesisClientRecordMatcher> matchers = records.stream().map(KinesisClientRecordMatcher::new)
                 .collect(Collectors.toList());
 
-        batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).continuationSequenceNumber("test").build();
+        batchEvent = SubscribeToShardEvent.builder()
+                                          .millisBehindLatest(100L)
+                                          .records(records)
+                                          .continuationSequenceNumber("test")
+                                          .childShards(Collections.emptyList())
+                                          .build();
 
         captor.getValue().onNext(batchEvent);
         captor.getValue().onNext(batchEvent);
@@ -217,7 +223,7 @@ public class FanOutRecordsPublisherTest {
                                                            .collect(Collectors.toList());
 
         batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).continuationSequenceNumber(CONTINUATION_SEQUENCE_NUMBER).build();
-        SubscribeToShardEvent invalidEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).build();
+        SubscribeToShardEvent invalidEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).childShards(Collections.emptyList()).build();
 
         captor.getValue().onNext(batchEvent);
         captor.getValue().onNext(invalidEvent);
@@ -295,7 +301,9 @@ public class FanOutRecordsPublisherTest {
                         SubscribeToShardEvent.builder()
                                 .millisBehindLatest(100L)
                                 .continuationSequenceNumber(contSeqNum)
-                                .records(records).build())
+                                .records(records)
+                                .childShards(Collections.emptyList())
+                                .build())
                 .forEach(batchEvent -> captor.getValue().onNext(batchEvent));
 
         verify(subscription, times(4)).request(1);
@@ -371,7 +379,9 @@ public class FanOutRecordsPublisherTest {
                         SubscribeToShardEvent.builder()
                                 .millisBehindLatest(100L)
                                 .continuationSequenceNumber(contSeqNum)
-                                .records(records).build())
+                                .records(records)
+                                .childShards(Collections.emptyList())
+                                .build())
                 .forEach(batchEvent -> captor.getValue().onNext(batchEvent));
 
         verify(subscription, times(2)).request(1);
@@ -404,6 +414,7 @@ public class FanOutRecordsPublisherTest {
                         .millisBehindLatest(100L)
                         .continuationSequenceNumber(contSeqNum + "")
                         .records(records)
+                        .childShards(Collections.emptyList())
                         .build());
 
         CountDownLatch servicePublisherTaskCompletionLatch = new CountDownLatch(2);
@@ -506,6 +517,7 @@ public class FanOutRecordsPublisherTest {
                         .millisBehindLatest(100L)
                         .continuationSequenceNumber(contSeqNum + "")
                         .records(records)
+                        .childShards(Collections.emptyList())
                         .build());
 
         CountDownLatch servicePublisherTaskCompletionLatch = new CountDownLatch(2);
@@ -606,6 +618,7 @@ public class FanOutRecordsPublisherTest {
                         .millisBehindLatest(100L)
                         .continuationSequenceNumber(contSeqNum + "")
                         .records(records)
+                        .childShards(Collections.emptyList())
                         .build());
 
         List<ChildShard> childShards = new ArrayList<>();
@@ -734,6 +747,7 @@ public class FanOutRecordsPublisherTest {
                         .millisBehindLatest(100L)
                         .continuationSequenceNumber(contSeqNum + "")
                         .records(records)
+                        .childShards(Collections.emptyList())
                         .build());
 
         CountDownLatch servicePublisherTaskCompletionLatch = new CountDownLatch(2);
@@ -836,6 +850,7 @@ public class FanOutRecordsPublisherTest {
                         .millisBehindLatest(100L)
                         .continuationSequenceNumber(contSeqNum + "")
                         .records(records)
+                        .childShards(Collections.emptyList())
                         .build());
 
         CountDownLatch servicePublisherTaskCompletionLatch = new CountDownLatch(2);
@@ -928,6 +943,7 @@ public class FanOutRecordsPublisherTest {
                         .millisBehindLatest(100L)
                         .continuationSequenceNumber(contSeqNum + "")
                         .records(records)
+                        .childShards(Collections.emptyList())
                         .build());
 
         CountDownLatch servicePublisherTaskCompletionLatch = new CountDownLatch(1);
@@ -1090,7 +1106,12 @@ public class FanOutRecordsPublisherTest {
         List<KinesisClientRecordMatcher> matchers = records.stream().map(KinesisClientRecordMatcher::new)
                 .collect(Collectors.toList());
 
-        batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records).continuationSequenceNumber(CONTINUATION_SEQUENCE_NUMBER).build();
+        batchEvent = SubscribeToShardEvent.builder()
+                                          .millisBehindLatest(100L)
+                                          .records(records)
+                                          .continuationSequenceNumber(CONTINUATION_SEQUENCE_NUMBER)
+                                          .childShards(Collections.emptyList())
+                                          .build();
 
         captor.getValue().onNext(batchEvent);
         captor.getValue().onNext(batchEvent);
@@ -1184,7 +1205,7 @@ public class FanOutRecordsPublisherTest {
                 .collect(Collectors.toList());
 
         batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(records)
-                .continuationSequenceNumber("3").build();
+                .continuationSequenceNumber("3").childShards(Collections.emptyList()).build();
 
         captor.getValue().onNext(batchEvent);
         captor.getValue().onComplete();
@@ -1212,7 +1233,7 @@ public class FanOutRecordsPublisherTest {
                 .collect(Collectors.toList());
 
         batchEvent = SubscribeToShardEvent.builder().millisBehindLatest(100L).records(nextRecords)
-                .continuationSequenceNumber("6").build();
+                .continuationSequenceNumber("6").childShards(Collections.emptyList()).build();
         nextSubscribeCaptor.getValue().onNext(batchEvent);
 
         verify(subscription, times(4)).request(1);

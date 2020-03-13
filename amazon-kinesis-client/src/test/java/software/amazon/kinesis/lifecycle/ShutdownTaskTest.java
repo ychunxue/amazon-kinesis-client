@@ -168,7 +168,7 @@ public class ShutdownTaskTest {
         verify(shardRecordProcessor).shardEnded(ShardEndedInput.builder().checkpointer(recordProcessorCheckpointer).build());
         verify(shardRecordProcessor, never()).leaseLost(LeaseLostInput.builder().build());
         verify(leaseRefresher, times(2)).createLeaseIfNotExists(Matchers.any(Lease.class));
-        verify(leaseCoordinator).dropLease(Matchers.any(Lease.class));
+        verify(leaseCoordinator, never()).dropLease(Matchers.any(Lease.class));
     }
 
     /**
@@ -176,7 +176,7 @@ public class ShutdownTaskTest {
      * This test is for the scenario that a ShutdownTask is created for detecting a false Shard End.
      */
     @Test
-    public final void testCallWhenFalseShardEnd() throws DependencyException, InvalidStateException, ProvisionedThroughputException {
+    public final void testCallWhenShardNotFound() throws DependencyException, InvalidStateException, ProvisionedThroughputException {
         shardInfo = new ShardInfo("shardId-4", concurrencyToken, Collections.emptySet(),
                                   ExtendedSequenceNumber.LATEST);
         task = new ShutdownTask(shardInfo, shardDetector, shardRecordProcessor, recordProcessorCheckpointer,
@@ -184,14 +184,17 @@ public class ShutdownTaskTest {
                                 ignoreUnexpectedChildShards, leaseCoordinator, TASK_BACKOFF_TIME_MILLIS, recordsPublisher,
                                 hierarchicalShardSyncer, NULL_METRICS_FACTORY, new ArrayList<>());
 
+        when(recordProcessorCheckpointer.lastCheckpointValue()).thenReturn(ExtendedSequenceNumber.SHARD_END);
+        when(leaseCoordinator.leaseRefresher()).thenReturn(leaseRefresher);
+
         final TaskResult result = task.call();
         assertNull(result.getException());
         verify(recordsPublisher).shutdown();
-        verify(shardRecordProcessor, never()).shardEnded(ShardEndedInput.builder().checkpointer(recordProcessorCheckpointer).build());
-        verify(shardRecordProcessor).leaseLost(LeaseLostInput.builder().build());
-        verify(leaseCoordinator).getCurrentlyHeldLease(shardInfo.shardId());
+        verify(shardRecordProcessor).shardEnded(ShardEndedInput.builder().checkpointer(recordProcessorCheckpointer).build());
+        verify(shardRecordProcessor, never()).leaseLost(LeaseLostInput.builder().build());
+        verify(leaseCoordinator, never()).getCurrentlyHeldLease(shardInfo.shardId());
         verify(leaseRefresher, never()).createLeaseIfNotExists(Matchers.any(Lease.class));
-        verify(leaseCoordinator).dropLease(Matchers.any(Lease.class));
+        verify(leaseCoordinator, never()).dropLease(Matchers.any(Lease.class));
     }
 
     /**

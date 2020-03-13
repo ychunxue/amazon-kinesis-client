@@ -103,27 +103,17 @@ public class ShutdownTask implements ConsumerTask {
         Exception exception;
         boolean applicationException = false;
 
-        final ShutdownReason localReason;
-        // If shut down reason is SHARD_END but childShards is empty list, this means we get to a false shard end.
-        // We should not throw exception because it will trigger another ShutdownTask which has the same empty list of childShards.
-        // Instead we should shut down the ShardConsumer with LEASE_LOST reason to allow other worker to grab lease and continue reading from this shard.
-        if(reason == ShutdownReason.SHARD_END && CollectionUtils.isNullOrEmpty(childShards)) {
-            localReason = ShutdownReason.LEASE_LOST;
-            dropLease();
-            log.warn("False shard end encountered. Forcing the lease to be lost before shutting down the consumer for Shard: {}.", shardInfo.shardId());
-        } else {
-            localReason = reason;
-        }
-
         try {
             try {
                 log.debug("Invoking shutdown() for shard {}, concurrencyToken {}. Shutdown reason: {}",
-                        shardInfo.shardId(), shardInfo.concurrencyToken(), localReason);
+                        shardInfo.shardId(), shardInfo.concurrencyToken(), reason);
 
                 final long startTime = System.currentTimeMillis();
-                if (localReason == ShutdownReason.SHARD_END) {
+                if (reason == ShutdownReason.SHARD_END) {
                     // Create new lease for the child shards if they don't exist.
-                    createLeasesForChildShardsIfNotExist();
+                    if (!CollectionUtils.isNullOrEmpty(childShards)) {
+                        createLeasesForChildShardsIfNotExist();
+                    }
 
                     recordProcessorCheckpointer
                             .sequenceNumberAtShardEnd(recordProcessorCheckpointer.largestPermittedCheckpointValue());
@@ -145,10 +135,13 @@ public class ShutdownTask implements ConsumerTask {
                     } finally {
                         MetricsUtil.addLatency(scope, RECORD_PROCESSOR_SHUTDOWN_METRIC, startTime, MetricsLevel.SUMMARY);
                     }
-                    // Drop the current lease.
-                    dropLease();
                 } else {
-                    shardRecordProcessor.leaseLost(LeaseLostInput.builder().build());
+                    try {
+                        shardRecordProcessor.leaseLost(LeaseLostInput.builder().build());
+                    } catch (Exception e) {
+                        applicationException = true;
+                        throw e;
+                    }
                 }
 
                 log.debug("Shutting down retrieval strategy.");
@@ -178,25 +171,13 @@ public class ShutdownTask implements ConsumerTask {
     }
 
     private void createLeasesForChildShardsIfNotExist()
-            throws RuntimeException, DependencyException, InvalidStateException, ProvisionedThroughputException {
+            throws DependencyException, InvalidStateException, ProvisionedThroughputException {
         for(ChildShard childShard : childShards) {
             if(leaseCoordinator.getCurrentlyHeldLease(shardInfo.shardId()) == null) {
-                final Lease leaseToCreate = createNewLeaseForShard(childShard);
+                final Lease leaseToCreate = hierarchicalShardSyncer.createLeaseForChildShard(childShard);
                 leaseCoordinator.leaseRefresher().createLeaseIfNotExists(leaseToCreate);
             }
         }
-    }
-
-    private Lease createNewLeaseForShard(ChildShard childShard) {
-        Lease newLease = new Lease();
-        newLease.leaseKey(childShard.shardId());
-        if (!CollectionUtils.isNullOrEmpty(childShard.parentShards())) {
-            newLease.parentShardIds(childShard.parentShards());
-        } else {
-            throw new RuntimeException("Unable to populate new lease for child shard " + childShard.shardId() + "because parent shards cannot be found.");
-        }
-        newLease.ownerSwitchesSinceCheckpoint(0L);
-        return newLease;
     }
 
     /*
