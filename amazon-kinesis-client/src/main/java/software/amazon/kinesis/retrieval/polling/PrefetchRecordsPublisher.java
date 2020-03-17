@@ -18,6 +18,7 @@ package software.amazon.kinesis.retrieval.polling;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -44,6 +45,7 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.cloudwatch.model.StandardUnit;
 import software.amazon.awssdk.services.kinesis.model.ExpiredIteratorException;
 import software.amazon.awssdk.services.kinesis.model.GetRecordsResponse;
+import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.kinesis.annotations.KinesisClientInternalApi;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.common.RequestDetails;
@@ -162,7 +164,7 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
             } else {
                 log.info(
                         "{}: No record batch found while evicting from the prefetch queue. This indicates the prefetch buffer"
-                                + "was reset.", shardId);
+                                + " was reset.", shardId);
             }
             return result;
         }
@@ -436,6 +438,7 @@ public class PrefetchRecordsPublisher implements RecordsPublisher {
                             .millisBehindLatest(getRecordsResult.millisBehindLatest())
                             .cacheEntryTime(lastSuccessfulCall)
                             .isAtShardEnd(getRecordsRetrievalStrategy.getDataFetcher().isShardEndReached())
+                            .childShards(getRecordsResult.childShards())
                             .build();
 
                     PrefetchRecordsRetrieved recordsRetrieved = new PrefetchRecordsRetrieved(processRecordsInput,
