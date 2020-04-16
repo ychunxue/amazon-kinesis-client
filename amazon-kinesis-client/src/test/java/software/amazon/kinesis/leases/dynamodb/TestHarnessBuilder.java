@@ -72,6 +72,7 @@ public class TestHarnessBuilder {
         lease.leaseCounter(0L);
         lease.leaseOwner(owner);
         lease.parentShardIds(Collections.singleton("parentShardId"));
+        lease.childShardIds(Collections.singleton("childShardId"));
         lease.leaseKey(shardId);
 
         return lease;

@@ -45,7 +45,10 @@ import software.amazon.kinesis.processor.ShardRecordProcessor;
 import software.amazon.kinesis.retrieval.RecordsPublisher;
 import software.amazon.kinesis.retrieval.kpl.ExtendedSequenceNumber;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
@@ -111,6 +114,7 @@ public class ShutdownTask implements ConsumerTask {
                     // Create new lease for the child shards if they don't exist.
                     if (!CollectionUtils.isNullOrEmpty(childShards)) {
                         createLeasesForChildShardsIfNotExist();
+                        updateLeasesForChildShards();
                     } else {
                         log.warn("Shard {} no longer exists. Shutting down consumer with SHARD_END reason without creating leases for child shards.", shardInfoIdProvider.apply(shardInfo));
                     }
@@ -180,6 +184,19 @@ public class ShutdownTask implements ConsumerTask {
                 leaseCoordinator.leaseRefresher().createLeaseIfNotExists(leaseToCreate);
             }
         }
+    }
+
+    private void updateLeasesForChildShards()
+            throws DependencyException, InvalidStateException, ProvisionedThroughputException {
+        Lease currentLease = leaseCoordinator.getCurrentlyHeldLease(shardInfo.shardId());
+        Set<String> childShardIds = new HashSet<>();
+        for (ChildShard childShard : childShards) {
+            childShardIds.add(childShard.shardId());
+        }
+
+        Lease upatedLease = currentLease.copy();
+        upatedLease.childShardIds(childShardIds);
+        leaseCoordinator.updateLease(upatedLease, UUID.fromString(shardInfo.concurrencyToken()), SHUTDOWN_TASK_OPERATION, shardInfoIdProvider.apply(shardInfo));
     }
 
     /*

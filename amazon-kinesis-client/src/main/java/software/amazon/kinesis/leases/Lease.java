@@ -87,6 +87,7 @@ public class Lease {
      */
     private Long ownerSwitchesSinceCheckpoint = 0L;
     private Set<String> parentShardIds = new HashSet<>();
+    private Set<String> childShardIds = new HashSet<>();
 
     /**
      * Copy constructor, used by clone().
@@ -96,13 +97,21 @@ public class Lease {
     protected Lease(Lease lease) {
         this(lease.leaseKey(), lease.leaseOwner(), lease.leaseCounter(), lease.concurrencyToken(),
                 lease.lastCounterIncrementNanos(), lease.checkpoint(), lease.pendingCheckpoint(),
-                lease.ownerSwitchesSinceCheckpoint(), lease.parentShardIds());
+                lease.ownerSwitchesSinceCheckpoint(), lease.parentShardIds(), lease.childShardIds());
     }
 
     public Lease(final String leaseKey, final String leaseOwner, final Long leaseCounter,
                     final UUID concurrencyToken, final Long lastCounterIncrementNanos,
                     final ExtendedSequenceNumber checkpoint, final ExtendedSequenceNumber pendingCheckpoint,
                     final Long ownerSwitchesSinceCheckpoint, final Set<String> parentShardIds) {
+        this(leaseKey, leaseOwner, leaseCounter, concurrencyToken, lastCounterIncrementNanos, checkpoint, pendingCheckpoint,
+             ownerSwitchesSinceCheckpoint, parentShardIds, new HashSet<>());
+    }
+
+    public Lease(final String leaseKey, final String leaseOwner, final Long leaseCounter,
+                 final UUID concurrencyToken, final Long lastCounterIncrementNanos,
+                 final ExtendedSequenceNumber checkpoint, final ExtendedSequenceNumber pendingCheckpoint,
+                 final Long ownerSwitchesSinceCheckpoint, final Set<String> parentShardIds, final Set<String> childShardIds) {
         this.leaseKey = leaseKey;
         this.leaseOwner = leaseOwner;
         this.leaseCounter = leaseCounter;
@@ -113,6 +122,9 @@ public class Lease {
         this.ownerSwitchesSinceCheckpoint = ownerSwitchesSinceCheckpoint;
         if (parentShardIds != null) {
             this.parentShardIds.addAll(parentShardIds);
+        }
+        if (childShardIds != null) {
+            this.childShardIds.addAll(childShardIds);
         }
     }
 
@@ -134,6 +146,9 @@ public class Lease {
         checkpoint(lease.checkpoint);
         pendingCheckpoint(lease.pendingCheckpoint);
         parentShardIds(lease.parentShardIds);
+        if (lease.childShardIds() != null) {
+            childShardIds(lease.childShardIds());
+        }
     }
 
     /**
@@ -229,6 +244,16 @@ public class Lease {
     public void parentShardIds(@NonNull final Collection<String> parentShardIds) {
         this.parentShardIds.clear();
         this.parentShardIds.addAll(parentShardIds);
+    }
+
+    /**
+     * Sets childShardIds.
+     *
+     * @param childShardIds may not be null
+     */
+    public void childShardIds(@NonNull final Collection<String> childShardIds) {
+        this.childShardIds.clear();
+        this.childShardIds.addAll(childShardIds);
     }
 
     /**
