@@ -188,7 +188,7 @@ public class ShutdownTask implements ConsumerTask {
 
     private void updateLeasesForChildShards()
             throws DependencyException, InvalidStateException, ProvisionedThroughputException {
-        Lease currentLease = leaseCoordinator.getCurrentlyHeldLease(shardInfo.shardId());
+        Lease currentLease = leaseCoordinator.getCurrentlyHeldLease(shardInfoIdProvider.apply(shardInfo));
         Set<String> childShardIds = new HashSet<>();
         for (ChildShard childShard : childShards) {
             childShardIds.add(childShard.shardId());
