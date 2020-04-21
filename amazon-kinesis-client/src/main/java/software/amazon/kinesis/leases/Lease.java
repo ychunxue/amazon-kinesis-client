@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 @NoArgsConstructor
 @Getter
 @Accessors(fluent = true)
-@EqualsAndHashCode(exclude = {"concurrencyToken", "lastCounterIncrementNanos"})
+@EqualsAndHashCode(exclude = {"concurrencyToken", "lastCounterIncrementNanos", "childShardIds"})
 @ToString
 public class Lease {
     /*
@@ -146,9 +146,7 @@ public class Lease {
         checkpoint(lease.checkpoint);
         pendingCheckpoint(lease.pendingCheckpoint);
         parentShardIds(lease.parentShardIds);
-        if (lease.childShardIds() != null) {
-            childShardIds(lease.childShardIds());
-        }
+        childShardIds(lease.childShardIds());
     }
 
     /**
@@ -252,7 +250,6 @@ public class Lease {
      * @param childShardIds may not be null
      */
     public void childShardIds(@NonNull final Collection<String> childShardIds) {
-        this.childShardIds.clear();
         this.childShardIds.addAll(childShardIds);
     }
 

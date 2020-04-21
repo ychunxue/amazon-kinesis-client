@@ -22,7 +22,6 @@ import java.util.Map;
 
 
 import com.google.common.base.Strings;
-import org.checkerframework.checker.units.qual.C;
 import software.amazon.awssdk.services.dynamodb.model.AttributeAction;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -230,9 +229,8 @@ public class DynamoDBLeaseSerializer implements LeaseSerializer {
 
         if (!CollectionUtils.isNullOrEmpty(lease.childShardIds())) {
             result.put(CHILD_SHARD_ID_KEY, putUpdate(DynamoUtils.createAttributeValue(lease.childShardIds())));
-        } else {
-            result.put(CHILD_SHARD_ID_KEY, AttributeValueUpdate.builder().action(AttributeAction.DELETE).build());
         }
+
         return result;
     }
 

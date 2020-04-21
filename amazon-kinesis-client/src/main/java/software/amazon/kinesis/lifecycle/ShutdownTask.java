@@ -112,6 +112,10 @@ public class ShutdownTask implements ConsumerTask {
                 final long startTime = System.currentTimeMillis();
                 if (reason == ShutdownReason.SHARD_END) {
                     // Create new lease for the child shards if they don't exist.
+                    // We have one valid scenario that shutdown task got created with SHARD_END reason and an empty list of childShards.
+                    // This would happen when KinesisDataFetcher(for polling mode) or FanOutRecordsPublisher(for StoS mode) catches ResourceNotFound exception.
+                    // In this case, KinesisDataFetcher and FanOutRecordsPublisher will send out SHARD_END signal to trigger a shutdown task with empty list of childShards.
+                    // This scenario could happen when customer deletes the stream while leaving the KCL application running.
                     if (!CollectionUtils.isNullOrEmpty(childShards)) {
                         createLeasesForChildShardsIfNotExist();
                         updateLeasesForChildShards();
@@ -188,13 +192,13 @@ public class ShutdownTask implements ConsumerTask {
 
     private void updateLeasesForChildShards()
             throws DependencyException, InvalidStateException, ProvisionedThroughputException {
-        Lease currentLease = leaseCoordinator.getCurrentlyHeldLease(shardInfoIdProvider.apply(shardInfo));
+        final Lease currentLease = leaseCoordinator.getCurrentlyHeldLease(shardInfoIdProvider.apply(shardInfo));
         Set<String> childShardIds = new HashSet<>();
         for (ChildShard childShard : childShards) {
             childShardIds.add(childShard.shardId());
         }
 
-        Lease upatedLease = currentLease.copy();
+        final Lease upatedLease = currentLease.copy();
         upatedLease.childShardIds(childShardIds);
         leaseCoordinator.updateLease(upatedLease, UUID.fromString(shardInfo.concurrencyToken()), SHUTDOWN_TASK_OPERATION, shardInfoIdProvider.apply(shardInfo));
     }
