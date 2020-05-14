@@ -153,7 +153,7 @@ class ProcessTask implements ITask {
         try {
             if (dataFetcher.isShardEndReached()) {
                 LOG.info("Reached end of shard " + shardInfo.getShardId());
-                return new TaskResult(null, true);
+                return new TaskResult(null, true, dataFetcher.getChildShards());
             }
 
             final ProcessRecordsInput processRecordsInput = getRecordsResult();
@@ -352,9 +352,12 @@ class ProcessTask implements ITask {
              * Advance the iterator to after the greatest processed sequence number (remembered by
              * recordProcessorCheckpointer).
              */
-            dataFetcher.advanceIteratorTo(recordProcessorCheckpointer.getLargestPermittedCheckpointValue()
-                    .getSequenceNumber(), streamConfig.getInitialPositionInStream());
-
+            try {
+                dataFetcher.advanceIteratorTo(recordProcessorCheckpointer.getLargestPermittedCheckpointValue()
+                                                                         .getSequenceNumber(), streamConfig.getInitialPositionInStream());
+            } catch (Throwable exept) {
+                throw new RuntimeException("Shard " + shardInfo.getShardId() + ": Failed to advance the iterator.", exept);
+            }
             // Try a second time - if we fail this time, expose the failure.
             try {
                 return getRecordsResultAndRecordMillisBehindLatest();

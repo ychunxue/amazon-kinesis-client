@@ -28,6 +28,7 @@ import java.util.Set;
 
 import com.amazonaws.services.kinesis.leases.impl.Lease;
 import com.amazonaws.services.kinesis.leases.impl.LeaseManager;
+import com.amazonaws.services.kinesis.model.ChildShard;
 import com.amazonaws.services.kinesis.model.ShardFilter;
 import com.amazonaws.services.kinesis.model.ShardFilterType;
 import com.amazonaws.util.CollectionUtils;
@@ -732,6 +733,22 @@ class KinesisShardSyncer implements ShardSyncer {
         newLease.setParentShardIds(parentShardIds);
         newLease.setOwnerSwitchesSinceCheckpoint(0L);
 
+        return newLease;
+    }
+
+    static KinesisClientLease newKCLLeaseForChildShard(ChildShard childShard) throws InvalidStateException {
+        KinesisClientLease newLease = new KinesisClientLease();
+        newLease.setLeaseKey(childShard.getShardId());
+        List<String> parentShardIds = new ArrayList<String>(2);
+        if (!CollectionUtils.isNullOrEmpty(childShard.getParentShards())) {
+            parentShardIds.addAll(childShard.getParentShards());
+        } else {
+            throw new InvalidStateException("Unable to populate new lease for child shard " + childShard.getShardId()
+            + " because parent shards cannot be found.");
+        }
+        newLease.setParentShardIds(parentShardIds);
+        newLease.setOwnerSwitchesSinceCheckpoint(0L);
+        newLease.setCheckpoint(ExtendedSequenceNumber.TRIM_HORIZON);
         return newLease;
     }
 

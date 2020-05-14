@@ -15,11 +15,13 @@
 package com.amazonaws.services.kinesis.clientlibrary.lib.worker;
 
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 
+import com.amazonaws.services.kinesis.model.ChildShard;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -65,6 +67,9 @@ class ShardConsumer {
     private long currentTaskSubmitTime;
     private Future<TaskResult> future;
     private ShardSyncStrategy shardSyncStrategy;
+
+    @Getter
+    private List<ChildShard> childShards;
 
     @Getter
     private final GetRecordsCache getRecordsCache;
@@ -184,7 +189,7 @@ class ShardConsumer {
                 metricsFactory,
                 backoffTimeMillis,
                 skipShardSyncAtWorkerInitializationIfLeasesExist,
-                new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo),
+                new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo, leaseCoordinator),
                 retryGetRecordsInSeconds,
                 maxGetRecordsThreadPool,
                 config, shardSyncer, shardSyncStrategy
@@ -321,6 +326,7 @@ class ShardConsumer {
             TaskResult result = future.get();
             if (result.getException() == null) {
                 if (result.isShardEndReached()) {
+                    childShards = result.getChildShards();
                     return TaskOutcome.END_OF_SHARD;
                 }
                 return TaskOutcome.SUCCESSFUL;

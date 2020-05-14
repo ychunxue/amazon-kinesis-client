@@ -26,6 +26,7 @@ import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.kinesis.clientlibrary.types.ExtendedSequenceNumber;
 import com.amazonaws.services.kinesis.leases.interfaces.ILeaseSerializer;
 import com.amazonaws.services.kinesis.leases.util.DynamoUtils;
+import com.amazonaws.util.CollectionUtils;
 import com.google.common.base.Strings;
 
 /**
@@ -39,6 +40,7 @@ public class KinesisClientLeaseSerializer implements ILeaseSerializer<KinesisCli
     private static final String PENDING_CHECKPOINT_SEQUENCE_KEY = "pendingCheckpoint";
     private static final String PENDING_CHECKPOINT_SUBSEQUENCE_KEY = "pendingCheckpointSubSequenceNumber";
     public final String PARENT_SHARD_ID_KEY = "parentShardId";
+    public final String CHILD_SHARD_ID_KEY = "childShardIds";
 
     private final LeaseSerializer baseSerializer = new LeaseSerializer(KinesisClientLease.class);
 
@@ -49,8 +51,11 @@ public class KinesisClientLeaseSerializer implements ILeaseSerializer<KinesisCli
         result.put(OWNER_SWITCHES_KEY, DynamoUtils.createAttributeValue(lease.getOwnerSwitchesSinceCheckpoint()));
         result.put(CHECKPOINT_SEQUENCE_NUMBER_KEY, DynamoUtils.createAttributeValue(lease.getCheckpoint().getSequenceNumber()));
         result.put(CHECKPOINT_SUBSEQUENCE_NUMBER_KEY, DynamoUtils.createAttributeValue(lease.getCheckpoint().getSubSequenceNumber()));
-        if (lease.getParentShardIds() != null && !lease.getParentShardIds().isEmpty()) {
+        if (!CollectionUtils.isNullOrEmpty(lease.getParentShardIds())) {
             result.put(PARENT_SHARD_ID_KEY, DynamoUtils.createAttributeValue(lease.getParentShardIds()));
+        }
+        if (!CollectionUtils.isNullOrEmpty(lease.getChildShardIds())) {
+            result.put(CHILD_SHARD_ID_KEY, DynamoUtils.createAttributeValue(lease.getChildShardIds()));
         }
 
         if (lease.getPendingCheckpoint() != null && !lease.getPendingCheckpoint().getSequenceNumber().isEmpty()) {
@@ -72,6 +77,7 @@ public class KinesisClientLeaseSerializer implements ILeaseSerializer<KinesisCli
                 DynamoUtils.safeGetLong(dynamoRecord, CHECKPOINT_SUBSEQUENCE_NUMBER_KEY))
         );
         result.setParentShardIds(DynamoUtils.safeGetSS(dynamoRecord, PARENT_SHARD_ID_KEY));
+        result.setChildShardIds(DynamoUtils.safeGetSS(dynamoRecord, CHILD_SHARD_ID_KEY));
 
         if (!Strings.isNullOrEmpty(DynamoUtils.safeGetString(dynamoRecord, PENDING_CHECKPOINT_SEQUENCE_KEY))) {
             result.setPendingCheckpoint(
