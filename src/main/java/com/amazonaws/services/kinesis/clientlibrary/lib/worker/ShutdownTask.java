@@ -112,8 +112,8 @@ class ShutdownTask implements ITask {
             if (reason == ShutdownReason.TERMINATE) {
                 // Create new lease for the child shards if they don't exist.
                 // We have one valid scenario that shutdown task got created with SHARD_END reason and an empty list of childShards.
-                // This would happen when KinesisDataFetcher(for polling mode) or FanOutRecordsPublisher(for StoS mode) catches ResourceNotFound exception.
-                // In this case, KinesisDataFetcher and FanOutRecordsPublisher will send out SHARD_END signal to trigger a shutdown task with empty list of childShards.
+                // This would happen when KinesisDataFetcher catches ResourceNotFound exception.
+                // In this case, KinesisDataFetcher will send out SHARD_END signal to trigger a shutdown task with empty list of childShards.
                 // This scenario could happen when customer deletes the stream while leaving the KCL application running.
                 if (!CollectionUtils.isNullOrEmpty(childShards)) {
                     createLeasesForChildShardsIfNotExist();
