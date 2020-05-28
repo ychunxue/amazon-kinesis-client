@@ -40,7 +40,7 @@ public class KinesisClientLeaseSerializer implements ILeaseSerializer<KinesisCli
     private static final String PENDING_CHECKPOINT_SEQUENCE_KEY = "pendingCheckpoint";
     private static final String PENDING_CHECKPOINT_SUBSEQUENCE_KEY = "pendingCheckpointSubSequenceNumber";
     public final String PARENT_SHARD_ID_KEY = "parentShardId";
-    public final String CHILD_SHARD_ID_KEY = "childShardIds";
+    public final String CHILD_SHARD_IDS_KEY = "childShardIds";
 
     private final LeaseSerializer baseSerializer = new LeaseSerializer(KinesisClientLease.class);
 
@@ -55,7 +55,7 @@ public class KinesisClientLeaseSerializer implements ILeaseSerializer<KinesisCli
             result.put(PARENT_SHARD_ID_KEY, DynamoUtils.createAttributeValue(lease.getParentShardIds()));
         }
         if (!CollectionUtils.isNullOrEmpty(lease.getChildShardIds())) {
-            result.put(CHILD_SHARD_ID_KEY, DynamoUtils.createAttributeValue(lease.getChildShardIds()));
+            result.put(CHILD_SHARD_IDS_KEY, DynamoUtils.createAttributeValue(lease.getChildShardIds()));
         }
 
         if (lease.getPendingCheckpoint() != null && !lease.getPendingCheckpoint().getSequenceNumber().isEmpty()) {
@@ -77,7 +77,7 @@ public class KinesisClientLeaseSerializer implements ILeaseSerializer<KinesisCli
                 DynamoUtils.safeGetLong(dynamoRecord, CHECKPOINT_SUBSEQUENCE_NUMBER_KEY))
         );
         result.setParentShardIds(DynamoUtils.safeGetSS(dynamoRecord, PARENT_SHARD_ID_KEY));
-        result.setChildShardIds(DynamoUtils.safeGetSS(dynamoRecord, CHILD_SHARD_ID_KEY));
+        result.setChildShardIds(DynamoUtils.safeGetSS(dynamoRecord, CHILD_SHARD_IDS_KEY));
 
         if (!Strings.isNullOrEmpty(DynamoUtils.safeGetString(dynamoRecord, PENDING_CHECKPOINT_SEQUENCE_KEY))) {
             result.setPendingCheckpoint(
@@ -150,7 +150,7 @@ public class KinesisClientLeaseSerializer implements ILeaseSerializer<KinesisCli
                 new AttributeValueUpdate(DynamoUtils.createAttributeValue(lease.getOwnerSwitchesSinceCheckpoint()),
                         AttributeAction.PUT));
         if (!CollectionUtils.isNullOrEmpty(lease.getChildShardIds())) {
-            result.put(CHILD_SHARD_ID_KEY, new AttributeValueUpdate(DynamoUtils.createAttributeValue(lease.getChildShardIds()), AttributeAction.PUT));
+            result.put(CHILD_SHARD_IDS_KEY, new AttributeValueUpdate(DynamoUtils.createAttributeValue(lease.getChildShardIds()), AttributeAction.PUT));
         }
 
         if (lease.getPendingCheckpoint() != null && !lease.getPendingCheckpoint().getSequenceNumber().isEmpty()) {

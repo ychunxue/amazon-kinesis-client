@@ -117,7 +117,7 @@ class ShutdownTask implements ITask {
                 // This scenario could happen when customer deletes the stream while leaving the KCL application running.
                 if (!CollectionUtils.isNullOrEmpty(childShards)) {
                     createLeasesForChildShardsIfNotExist();
-                    updateLeaseForChildShards();
+                    updateCurrentLeaseWithChildShards();
                 } else {
                     LOG.warn("Shard " + shardInfo.getShardId()
                                      + " no longer exists. Shutting down consumer with SHARD_END reason without creating leases for child shards.");
@@ -187,17 +187,19 @@ class ShutdownTask implements ITask {
         }
     }
 
-    private void updateLeaseForChildShards() throws DependencyException, InvalidStateException, ProvisionedThroughputException {
+    private void updateCurrentLeaseWithChildShards() throws DependencyException, InvalidStateException, ProvisionedThroughputException {
         final KinesisClientLease currentLease = leaseCoordinator.getCurrentlyHeldLease(shardInfo.getShardId());
-        Set<String> childShardIds = childShards.stream().map(ChildShard::getShardId).collect(Collectors.toSet());
+        if (currentLease == null) {
+            throw new InvalidStateException("Failed to retrieve current lease for shard " + shardInfo.getShardId());
+        }
+        final Set<String> childShardIds = childShards.stream().map(ChildShard::getShardId).collect(Collectors.toSet());
 
-        final KinesisClientLease updatedLease = currentLease.copy();
-        updatedLease.setChildShardIds(childShardIds);
-        final boolean updateResult = leaseCoordinator.updateLease(updatedLease, UUID.fromString(shardInfo.getConcurrencyToken()));
+        currentLease.setChildShardIds(childShardIds);
+        final boolean updateResult = leaseCoordinator.updateLease(currentLease, UUID.fromString(shardInfo.getConcurrencyToken()));
         if (!updateResult) {
             throw new InvalidStateException("Failed to update parent lease with child shard information for shard " + shardInfo.getShardId());
         }
-        LOG.info("Shard " + shardInfo.getShardId() + ": Updated current lease with child shard information: " + updatedLease.getLeaseKey());
+        LOG.info("Shard " + shardInfo.getShardId() + ": Updated current lease with child shard information: " + currentLease.getLeaseKey());
     }
 
 
