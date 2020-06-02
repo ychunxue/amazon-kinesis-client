@@ -150,7 +150,7 @@ class KinesisDataFetcher {
 
     private boolean isValidResult(GetRecordsResult getRecordsResult) {
         return getRecordsResult.getNextShardIterator() == null ? !CollectionUtils.isNullOrEmpty(getRecordsResult.getChildShards())
-                                                    : getRecordsResult.getNextShardIterator() != null && getRecordsResult.getChildShards().isEmpty();
+                                                    : getRecordsResult.getChildShards() != null && getRecordsResult.getChildShards().isEmpty();
     }
 
     /**

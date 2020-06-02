@@ -129,6 +129,7 @@ public class PrefetchGetRecordsCache implements GetRecordsCache {
         try {
             result = getRecordsResultQueue.take().withCacheExitTime(Instant.now());
             prefetchCounters.removed(result);
+            log.info("Number of records remaining in queue is " + getRecordsResultQueue.size());
         } catch (InterruptedException e) {
             log.error("Interrupted while getting records from the cache", e);
         }
