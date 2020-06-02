@@ -179,7 +179,7 @@ class ShutdownTask implements ITask {
     private void createLeasesForChildShardsIfNotExist() throws InvalidStateException, DependencyException, ProvisionedThroughputException {
         for (ChildShard childShard : childShards) {
             final String leaseKey = childShard.getShardId();
-            if (leaseCoordinator.getCurrentlyHeldLease(leaseKey) == null) {
+            if (leaseCoordinator.getLeaseManager().getLease(leaseKey) == null) {
                 final KinesisClientLease leaseToCreate = KinesisShardSyncer.newKCLLeaseForChildShard(childShard);
                 leaseCoordinator.getLeaseManager().createLeaseIfNotExists(leaseToCreate);
                 LOG.info("Shard " + shardInfo.getShardId() + " : Created child shard lease: " + leaseToCreate.getLeaseKey());
