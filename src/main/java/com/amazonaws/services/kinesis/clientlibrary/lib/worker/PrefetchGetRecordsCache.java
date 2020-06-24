@@ -178,11 +178,7 @@ public class PrefetchGetRecordsCache implements GetRecordsCache {
                         
                         MetricsHelper.getMetricsScope().addData(EXPIRED_ITERATOR_METRIC, 1, StandardUnit.Count,
                                 MetricsLevel.SUMMARY);
-                        try {
-                            dataFetcher.restartIterator();
-                        } catch (Throwable ex) {
-                            log.error("Exception thrown while restarting iterator", ex);
-                        }
+                        dataFetcher.restartIterator();
                     } catch (SdkClientException e) {
                         log.error("Exception thrown while fetching records from Kinesis", e);
                     } catch (Throwable e) {

@@ -178,8 +178,7 @@ class KinesisDataFetcher {
      * @param sequenceNumber advance the iterator to the record at this sequence number.
      * @param initialPositionInStream The initialPositionInStream.
      */
-    void advanceIteratorTo(String sequenceNumber, InitialPositionInStreamExtended initialPositionInStream)
-            throws InvalidStateException {
+    void advanceIteratorTo(String sequenceNumber, InitialPositionInStreamExtended initialPositionInStream) {
         if (sequenceNumber == null) {
             throw new IllegalArgumentException("SequenceNumber should not be null: shardId " + shardId);
         } else if (sequenceNumber.equals(SentinelCheckpoint.LATEST.toString())) {
@@ -196,7 +195,7 @@ class KinesisDataFetcher {
         if (nextIterator == null) {
             final Set<String> childShardIds = leaseCoordinator.getChildShardIds(shardId);
             if (CollectionUtils.isNullOrEmpty(childShardIds)) {
-                throw new InvalidStateException("Failed to advance iterator for shard " + shardId
+                throw new IllegalStateException("Failed to advance iterator for shard " + shardId
                                                         + ". Reached shard end but childShardIds do not exist in the lease");
             }
             LOG.info("Reached shard end: cannot advance iterator for shard " + shardId);
@@ -264,7 +263,7 @@ class KinesisDataFetcher {
      * Gets a new iterator from the last known sequence number i.e. the sequence number of the last record from the last
      * getRecords call.
      */
-    public void restartIterator() throws InvalidStateException {
+    public void restartIterator() {
         if (StringUtils.isEmpty(lastKnownSequenceNumber) || initialPositionInStream == null) {
             throw new IllegalStateException("Make sure to initialize the KinesisDataFetcher before restarting the iterator.");
         }
