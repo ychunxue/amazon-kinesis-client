@@ -190,7 +190,7 @@ class ShardConsumer {
                 metricsFactory,
                 backoffTimeMillis,
                 skipShardSyncAtWorkerInitializationIfLeasesExist,
-                new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo, leaseCoordinator),
+                new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo),
                 retryGetRecordsInSeconds,
                 maxGetRecordsThreadPool,
                 config, shardSyncer, shardSyncStrategy
@@ -329,7 +329,7 @@ class ShardConsumer {
                 if (result.isShardEndReached()) {
                     if (!CollectionUtils.isNullOrEmpty(result.getChildShards())) {
                         childShards = result.getChildShards();
-                        LOG.info("Set childShards in ShardConsumer: " + childShards);
+                        LOG.info("Shard " + shardInfo.getShardId() + ": Setting childShards in ShardConsumer: " + childShards);
                     }
                     return TaskOutcome.END_OF_SHARD;
                 }
@@ -430,7 +430,7 @@ class ShardConsumer {
     void updateState(TaskOutcome taskOutcome) {
         if (taskOutcome == TaskOutcome.END_OF_SHARD) {
             markForShutdown(ShutdownReason.TERMINATE);
-            LOG.info("Mark for shutdown with reason TERMINATE");
+            LOG.info("Shard " + shardInfo.getShardId() + "Mark for shutdown with reason TERMINATE");
         }
         if (isShutdownRequested() && taskOutcome != TaskOutcome.FAILURE) {
             currentState = currentState.shutdownTransition(shutdownReason);

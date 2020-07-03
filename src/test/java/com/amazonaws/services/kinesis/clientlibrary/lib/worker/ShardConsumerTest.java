@@ -366,7 +366,7 @@ public class ShardConsumerTest {
                 metricsFactory
         );
 
-        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo, leaseCoordinator);
+        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo);
 
         getRecordsCache = spy(new BlockingGetRecordsCache(maxRecords,
                 new SynchronousGetRecordsRetrievalStrategy(dataFetcher)));
@@ -566,7 +566,7 @@ public class ShardConsumerTest {
 
         ShardInfo shardInfo = new ShardInfo(streamShardId, testConcurrencyToken, null, null);
 
-        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo, leaseCoordinator);
+        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo);
 
         getRecordsCache = spy(new BlockingGetRecordsCache(maxRecords,
                 new SynchronousGetRecordsRetrievalStrategy(dataFetcher)));
@@ -711,7 +711,7 @@ public class ShardConsumerTest {
 
         ShardInfo shardInfo = new ShardInfo(streamShardId, testConcurrencyToken, null, null);
 
-        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo, leaseCoordinator);
+        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo);
 
         getRecordsCache = spy(new BlockingGetRecordsCache(maxRecords,
                                                           new SynchronousGetRecordsRetrievalStrategy(dataFetcher)));
@@ -869,7 +869,7 @@ public class ShardConsumerTest {
                 metricsFactory
         );
 
-        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo, leaseCoordinator);
+        dataFetcher = new KinesisDataFetcher(streamConfig.getStreamProxy(), shardInfo);
 
         getRecordsCache = spy(new BlockingGetRecordsCache(maxRecords,
                 new SynchronousGetRecordsRetrievalStrategy(dataFetcher)));

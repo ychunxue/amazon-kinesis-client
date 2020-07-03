@@ -736,10 +736,17 @@ class KinesisShardSyncer implements ShardSyncer {
         return newLease;
     }
 
+    /**
+     * Helper method to create a new KinesisClientLease POJO for a ChildShard.
+     * Note: Package level access only for testing purposes
+     *
+     * @param childShard
+     * @return
+     */
     static KinesisClientLease newKCLLeaseForChildShard(ChildShard childShard) throws InvalidStateException {
         final KinesisClientLease newLease = new KinesisClientLease();
         newLease.setLeaseKey(childShard.getShardId());
-        List<String> parentShardIds = new ArrayList<>();
+        final List<String> parentShardIds = new ArrayList<>();
         if (!CollectionUtils.isNullOrEmpty(childShard.getParentShards())) {
             parentShardIds.addAll(childShard.getParentShards());
         } else {

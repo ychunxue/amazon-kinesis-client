@@ -53,17 +53,15 @@ class KinesisDataFetcher {
     private String lastKnownSequenceNumber;
     private InitialPositionInStreamExtended initialPositionInStream;
     private List<ChildShard> childShards = Collections.emptyList();
-    private KinesisClientLibLeaseCoordinator leaseCoordinator;
 
     /**
      *
      * @param kinesisProxy Kinesis proxy
      * @param shardInfo The shardInfo object.
      */
-    public KinesisDataFetcher(IKinesisProxy kinesisProxy, ShardInfo shardInfo, KinesisClientLibLeaseCoordinator leaseCoordinator) {
+    public KinesisDataFetcher(IKinesisProxy kinesisProxy, ShardInfo shardInfo) {
         this.shardId = shardInfo.getShardId();
         this.kinesisProxy = new MetricsCollectingKinesisProxyDecorator("KinesisDataFetcher", kinesisProxy, this.shardId);
-        this.leaseCoordinator = leaseCoordinator;
     }
 
     /**
@@ -125,7 +123,8 @@ class KinesisDataFetcher {
         @Override
         public GetRecordsResult accept() {
             if (!isValidResult(result)) {
-                throw new SdkClientException("GetRecordsResult is not valid. NextShardIterator: " + result.getNextShardIterator()
+                // Throwing SDK exception when the GetRecords result is not valid. This will allow PrefetchGetRecordsCache to retry the GetRecords call.
+                throw new SdkClientException("Shard " + shardId +": GetRecordsResult is not valid. NextShardIterator: " + result.getNextShardIterator()
                                                      + ". ChildShards: " + result.getChildShards());
             }
             nextIterator = result.getNextShardIterator();
@@ -149,8 +148,20 @@ class KinesisDataFetcher {
     }
 
     private boolean isValidResult(GetRecordsResult getRecordsResult) {
-        return getRecordsResult.getNextShardIterator() == null ? !CollectionUtils.isNullOrEmpty(getRecordsResult.getChildShards())
-                                                    : getRecordsResult.getChildShards() != null && getRecordsResult.getChildShards().isEmpty();
+        // GetRecords result should contain childShard information. There are two valid combination for the nextShardIterator and childShards
+        // If the GetRecords call does not reach the shard end, getRecords result should contain a non-null nextShardIterator and an empty list of childShards.
+        // If the GetRecords call reaches the shard end, getRecords result should contain a null nextShardIterator and a non-empty list of childShards.
+        // All other combinations are invalid and indicating an issue with GetRecords result from Kinesis service.
+        if (getRecordsResult.getNextShardIterator() == null && CollectionUtils.isNullOrEmpty(getRecordsResult.getChildShards()) ||
+                getRecordsResult.getNextShardIterator() != null && !CollectionUtils.isNullOrEmpty(getRecordsResult.getChildShards())) {
+            return false;
+        }
+        for (ChildShard childShard : getRecordsResult.getChildShards()) {
+            if (CollectionUtils.isNullOrEmpty(childShard.getParentShards())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -158,15 +169,13 @@ class KinesisDataFetcher {
      * @param initialCheckpoint Current checkpoint sequence number for this shard.
      * @param initialPositionInStream The initialPositionInStream.
      */
-    public void initialize(String initialCheckpoint, InitialPositionInStreamExtended initialPositionInStream)
-            throws InvalidStateException {
+    public void initialize(String initialCheckpoint, InitialPositionInStreamExtended initialPositionInStream) {
         LOG.info("Initializing shard " + shardId + " with " + initialCheckpoint);
         advanceIteratorTo(initialCheckpoint, initialPositionInStream);
         isInitialized = true;
     }
 
-    public void initialize(ExtendedSequenceNumber initialCheckpoint, InitialPositionInStreamExtended initialPositionInStream)
-            throws InvalidStateException {
+    public void initialize(ExtendedSequenceNumber initialCheckpoint, InitialPositionInStreamExtended initialPositionInStream) {
         LOG.info("Initializing shard " + shardId + " with " + initialCheckpoint.getSequenceNumber());
         advanceIteratorTo(initialCheckpoint.getSequenceNumber(), initialPositionInStream);
         isInitialized = true;
@@ -193,13 +202,9 @@ class KinesisDataFetcher {
             nextIterator = getIterator(ShardIteratorType.AT_SEQUENCE_NUMBER.toString(), sequenceNumber);
         }
         if (nextIterator == null) {
-            final Set<String> childShardIds = leaseCoordinator.getChildShardIds(shardId);
-            if (CollectionUtils.isNullOrEmpty(childShardIds)) {
-                throw new IllegalStateException("Failed to advance iterator for shard " + shardId
-                                                        + ". Reached shard end but childShardIds do not exist in the lease");
-            }
             LOG.info("Reached shard end: cannot advance iterator for shard " + shardId);
             isShardEndReached = true;
+            // TODO: transition to ShuttingDown state on shardend instead to shutdown state for enqueueing this for cleanup
         }
         this.lastKnownSequenceNumber = sequenceNumber;
         this.initialPositionInStream = initialPositionInStream;

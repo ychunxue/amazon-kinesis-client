@@ -180,10 +180,9 @@ public class ShutdownTaskTest {
                 shardSyncStrategy,
                 constructChildShards());
         TaskResult result = task.call();
-        verify(getRecordsCache, never()).shutdown();
-        Assert.assertNotNull(result.getException());
-        Assert.assertTrue(result.getException() instanceof InvalidStateException);
-        Assert.assertEquals(exceptionMessage, result.getException().getMessage());
+        verify(getRecordsCache).shutdown();
+        verify(leaseCoordinator).dropLease(any(KinesisClientLease.class));
+        Assert.assertNull(result.getException());
     }
 
     @Test

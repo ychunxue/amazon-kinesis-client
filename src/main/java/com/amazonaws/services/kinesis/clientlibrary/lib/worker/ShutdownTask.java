@@ -106,39 +106,54 @@ class ShutdownTask implements ITask {
 
         try {
             LOG.info("Invoking shutdown() for shard " + shardInfo.getShardId() + ", concurrencyToken: "
-                              + shardInfo.getConcurrencyToken() + ", Shutdown reason: " + reason + ". childShards:" + childShards);
-
-            // If we reached end of the shard, set sequence number to SHARD_END.
-            if (reason == ShutdownReason.TERMINATE) {
+                     + shardInfo.getConcurrencyToken() + ", original Shutdown reason: " + reason + ". childShards:" + childShards);
+            ShutdownReason localReason = reason;
+            /*
+             * Revalidate if the current shard is closed before shutting down the shard consumer with reason SHARD_END
+             * If current shard is not closed, shut down the shard consumer with reason LEASE_LOST that allows active
+             * workers to contend for the lease of this shard.
+             */
+            if(localReason == ShutdownReason.TERMINATE) {
                 // Create new lease for the child shards if they don't exist.
                 // We have one valid scenario that shutdown task got created with SHARD_END reason and an empty list of childShards.
                 // This would happen when KinesisDataFetcher catches ResourceNotFound exception.
                 // In this case, KinesisDataFetcher will send out SHARD_END signal to trigger a shutdown task with empty list of childShards.
                 // This scenario could happen when customer deletes the stream while leaving the KCL application running.
-                if (!CollectionUtils.isNullOrEmpty(childShards)) {
-                    createLeasesForChildShardsIfNotExist();
-                    updateCurrentLeaseWithChildShards();
-                } else {
-                    LOG.warn("Shard " + shardInfo.getShardId()
-                                     + " no longer exists. Shutting down consumer with SHARD_END reason without creating leases for child shards.");
+                try {
+                    if (!CollectionUtils.isNullOrEmpty(childShards)) {
+                        createLeasesForChildShardsIfNotExist();
+                        updateCurrentLeaseWithChildShards();
+                    } else {
+                        LOG.warn("Shard " + shardInfo.getShardId()
+                                         + ": Shutting down consumer with SHARD_END reason without creating leases for child shards.");
+                    }
+                } catch (InvalidStateException e) {
+                    // If invalidStateException happens, it indicates we are missing childShard related information.
+                    // In this scenario, we should shutdown the shardConsumer with ZOMBIE reason to allow other worker to take the lease and retry getting
+                    // childShard information in the processTask.
+                    localReason = ShutdownReason.ZOMBIE;
+                    dropLease();
+                    LOG.warn("Shard " + shardInfo.getShardId() + ": Exception happened while shutting down shardConsumer with TERMINATE reason." +
+                                     "Dropping the lease and shutting down shardConsumer using ZOMBIE reason. Exception: ", e);
                 }
+            }
 
+            // If we reached end of the shard, set sequence number to SHARD_END.
+            if (localReason == ShutdownReason.TERMINATE) {
                 recordProcessorCheckpointer.setSequenceNumberAtShardEnd(
                         recordProcessorCheckpointer.getLargestPermittedCheckpointValue());
                 recordProcessorCheckpointer.setLargestPermittedCheckpointValue(ExtendedSequenceNumber.SHARD_END);
             }
 
-            LOG.debug("Invoking shutdown() for shard " + shardInfo.getShardId() + ", concurrencyToken "
-                    + shardInfo.getConcurrencyToken() + ". Shutdown reason: " + reason);
             final ShutdownInput shutdownInput = new ShutdownInput()
-                    .withShutdownReason(reason)
+                    .withShutdownReason(localReason)
                     .withCheckpointer(recordProcessorCheckpointer);
             final long recordProcessorStartTimeMillis = System.currentTimeMillis();
             try {
                 recordProcessor.shutdown(shutdownInput);
                 ExtendedSequenceNumber lastCheckpointValue = recordProcessorCheckpointer.getLastCheckpointValue();
 
-                if (reason == ShutdownReason.TERMINATE) {
+                if (localReason == ShutdownReason.TERMINATE) {
                     if ((lastCheckpointValue == null)
                             || (!lastCheckpointValue.equals(ExtendedSequenceNumber.SHARD_END))) {
                         throw new IllegalArgumentException("Application didn't checkpoint at end of shard "
