@@ -133,7 +133,7 @@ class ShutdownTask implements ITask {
                     // childShard information in the processTask.
                     localReason = ShutdownReason.ZOMBIE;
                     dropLease();
-                    LOG.warn("Shard " + shardInfo.getShardId() + ": Exception happened while shutting down shardConsumer with TERMINATE reason." +
+                    LOG.warn("Shard " + shardInfo.getShardId() + ": Exception happened while shutting down shardConsumer with TERMINATE reason. " +
                                      "Dropping the lease and shutting down shardConsumer using ZOMBIE reason. Exception: ", e);
                 }
             }
@@ -235,6 +235,10 @@ class ShutdownTask implements ITask {
 
     private void dropLease() {
         KinesisClientLease lease = leaseCoordinator.getCurrentlyHeldLease(shardInfo.getShardId());
+        if (lease == null) {
+            LOG.warn("Shard " + shardInfo.getShardId() + ": Lease already dropped. Will shutdown the shardConsumer directly.");
+            return;
+        }
         leaseCoordinator.dropLease(lease);
         LOG.warn("Dropped lease for shutting down ShardConsumer: " + lease.getLeaseKey());
     }

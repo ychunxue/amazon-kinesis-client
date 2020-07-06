@@ -352,12 +352,9 @@ class ProcessTask implements ITask {
              * Advance the iterator to after the greatest processed sequence number (remembered by
              * recordProcessorCheckpointer).
              */
-            try {
-                dataFetcher.advanceIteratorTo(recordProcessorCheckpointer.getLargestPermittedCheckpointValue()
-                                                                         .getSequenceNumber(), streamConfig.getInitialPositionInStream());
-            } catch (Throwable t) {
-                throw new RuntimeException("Shard " + shardInfo.getShardId() + ": Failed to advance the iterator.", t);
-            }
+            dataFetcher.advanceIteratorTo(recordProcessorCheckpointer.getLargestPermittedCheckpointValue()
+                                                                     .getSequenceNumber(), streamConfig.getInitialPositionInStream());
+
             // Try a second time - if we fail this time, expose the failure.
             try {
                 return getRecordsResultAndRecordMillisBehindLatest();

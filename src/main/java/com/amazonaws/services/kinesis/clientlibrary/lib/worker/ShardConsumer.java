@@ -430,7 +430,7 @@ class ShardConsumer {
     void updateState(TaskOutcome taskOutcome) {
         if (taskOutcome == TaskOutcome.END_OF_SHARD) {
             markForShutdown(ShutdownReason.TERMINATE);
-            LOG.info("Shard " + shardInfo.getShardId() + "Mark for shutdown with reason TERMINATE");
+            LOG.info("Shard " + shardInfo.getShardId() + ": Mark for shutdown with reason TERMINATE");
         }
         if (isShutdownRequested() && taskOutcome != TaskOutcome.FAILURE) {
             currentState = currentState.shutdownTransition(shutdownReason);
